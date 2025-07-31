@@ -19,7 +19,7 @@
   }
 
   let canvasWidth = windowWidth;
-  let canvasHeight = windowHeight;
+  let canvasHeight = windowHeight-100;
 
   let canvas = createCanvas(canvasWidth, canvasHeight);
   canvas.elt.id = "p5-canvas";
