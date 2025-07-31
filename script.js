@@ -30,7 +30,7 @@
   document.getElementById("p5-container").appendChild(canvas.elt);
 
         
-        textAlign(CENTER, CENTER);
+      textAlign(CENTER, CENTER);
       textSize(14);
       rectMode(CENTER);
       gerarLinhasDeFundo();
@@ -216,7 +216,6 @@
         fill(255);
         noStroke();
         textAlign(CENTER, CENTER);
-        textWrap(WORD);
 
         textStyle(BOLD);
         text(evento.titulo, pos.x, pos.y - 10);
