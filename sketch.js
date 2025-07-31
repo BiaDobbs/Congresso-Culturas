@@ -13,6 +13,7 @@
     
     function setup() {
       createCanvas(windowWidth, windowHeight-100);
+        canvas.parent("app-container");
       textAlign(CENTER, CENTER);
       textSize(14);
       rectMode(CENTER);
