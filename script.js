@@ -12,29 +12,25 @@
     let colors = ['#ffc600', '#ff8ace', '#4cc1ec'];
     
     function setup() {
-     // Ensure the canvas exists to avoid errors
   let container = document.getElementById("canvas-wrapper");
   if (!container) {
     console.error("Canvas container not found!");
     return;
   }
 
-
   let canvasWidth = windowWidth;
   let canvasHeight = windowHeight;
 
-
-
   let canvas = createCanvas(canvasWidth, canvasHeight);
   canvas.elt.id = "p5-canvas";
-  document.getElementById("p5-container").appendChild(canvas.elt);
 
-        
-      textAlign(CENTER, CENTER);
-      textSize(14);
-      rectMode(CENTER);
-      gerarLinhasDeFundo();
-    }
+  canvas.parent("canvas-wrapper");
+
+  textAlign(CENTER, CENTER);
+  textSize(14);
+  rectMode(CENTER);
+  gerarLinhasDeFundo();
+}
 
     function draw() {
       background(255);
