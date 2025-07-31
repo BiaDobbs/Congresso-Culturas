@@ -12,9 +12,25 @@
     let colors = ['#ffc600', '#ff8ace', '#4cc1ec'];
     
     function setup() {
-      createCanvas(windowWidth, windowHeight-100);
-        canvas.parent("app-container");
-      textAlign(CENTER, CENTER);
+     // Ensure the canvas exists to avoid errors
+  let container = document.getElementById("canvas-wrapper");
+  if (!container) {
+    console.error("Canvas container not found!");
+    return;
+  }
+
+
+  let canvasWidth = windowWidth;
+  let canvasHeight = windowHeight;
+
+
+
+  let canvas = createCanvas(canvasWidth, canvasHeight);
+  canvas.elt.id = "p5-canvas";
+  document.getElementById("p5-container").appendChild(canvas.elt);
+
+        
+        textAlign(CENTER, CENTER);
       textSize(14);
       rectMode(CENTER);
       gerarLinhasDeFundo();
