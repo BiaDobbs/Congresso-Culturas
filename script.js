@@ -3,7 +3,7 @@ let eventos = [
   { titulo: "Avaliação das propostas", data: "31.07 - 24.08", offsetX: 0 },
   { titulo: "Publicação dos resultados", data: "28.08", offsetX: -190 },
   { titulo: "Programação provisória", data: "10.09", offsetX: 130 },
-  { titulo: "Inscrições", data: "10.09 - 31.10", offsetX: -150 },
+  { titulo: "Período de inscrições", data: "10.09 - 31.10", offsetX: -150 },
   { titulo: "Envio dos textos completos", data: "até 31.10", offsetX: 60 },
   { titulo: "Divulgação do programa final", data: "05.11", offsetX: 0 },
 ];
@@ -257,12 +257,15 @@ function desenharLinhaPrincipal() {
     
     textStyle(BOLD);
     textSize(boxH * 0.3);
-    text(evento.titulo, pos.x, pos.y - boxH * 0.15);
+    text(evento.titulo, pos.x - boxW * 0.1, pos.y - boxH * 0.15);
     
     //textStyle(NORMAL);
-    textSize(boxH * 0.25);
+    
+    textSize(boxH * 0.45);
     fill(CORES.roxo);
-    text(evento.data, pos.x, pos.y + boxH * 0.25);
+    
+   // textAlign(LEFT, CENTER);
+    text(evento.data, pos.x+boxW * 0.25, pos.y + boxH * 0.25);
   }
 
   // Linha final
