@@ -37,7 +37,7 @@ function setup() {
     return;
   }
 
-  let canvas = createCanvas(windowWidth, windowHeight * 0.6);
+  let canvas = createCanvas(windowWidth, windowHeight * 0.8);
   canvas.elt.id = "p5-canvas";
   canvas.parent("canvas-wrapper");
 
@@ -209,10 +209,10 @@ function deslocarFundo(x, y) {
 function desenharLinhaPrincipal() {
   // Cache de valores calculados
   let centroX = width * 0.5;
-  let inicioY = height * 0.14;
-  let espacoY = height * 0.15;
-  let boxW = width * 0.27;
-  let boxH = height * 0.09;
+  let inicioY = height * 0.12;
+  let espacoY = height * 0.16;
+  let boxW = width * 0.4;
+  let boxH = height * 0.12;
   let raioBox = boxH * 0.33;
 
   // Pré-calcular posições dos eventos
@@ -259,9 +259,10 @@ function desenharLinhaPrincipal() {
     textSize(boxH * 0.3);
     text(evento.titulo, pos.x, pos.y - boxH * 0.15);
     
-    textStyle(NORMAL);
+    //textStyle(NORMAL);
     textSize(boxH * 0.25);
-    text(evento.data, pos.x, pos.y + boxH * 0.15);
+    fill(CORES.roxo);
+    text(evento.data, pos.x, pos.y + boxH * 0.25);
   }
 
   // Linha final
