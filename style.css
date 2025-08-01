@@ -1,7 +1,15 @@
-html, body {
-  margin: 0;
-  padding: 0;
-}
-canvas {
-  display: block;
-}
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: transparent; /* opcional, se quiser fundo transparente */
+  }
+
+  canvas {
+    display: block;
+    height: 70vh !important; /* 70% da altura da viewport */
+    width: 100vw !important; /* largura total */
+  }
+</style>
