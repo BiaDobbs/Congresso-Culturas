@@ -2,6 +2,14 @@ html, body {
   margin: 0;
   padding: 0;
 }
+
+
+body {
+  width: fit-content;
+  height: fit-content;
+}
+
+
 canvas {
   display: block;
 }
