@@ -2,8 +2,8 @@ let linhasDeFundo = [];
 let eventos = [
   { titulo: "Avaliação das propostas", data: " até 24.08", offsetX: 0 },
   { titulo: "Publicação dos resultados", data: "28.08", offsetX: -190 },
-  { titulo: "Programação provisória", data: "10.09", offsetX: 130 },
-  { titulo: "Período de inscrições", data: "10.09 - 31.10", offsetX: -150 },
+  { titulo: "Programação provisória", data: "15.09", offsetX: 130 },
+  { titulo: "Período de inscrições", data: "15.09 - 31.10", offsetX: -150 },
   { titulo: "Envio dos trabalhos", data: "até 31.10", offsetX: 60 },
   { titulo: "Programação final", data: "05.11", offsetX: 0 },
 ];
