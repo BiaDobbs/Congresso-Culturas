@@ -67,7 +67,7 @@ function setup() {
   canvas.elt.id = "p5-canvas";
   canvas.parent("canvas-wrapper");
   // make canvas element responsive in CSS pixels while keeping drawing buffer full-size
-  canvas.elt.style.maxWidth = '100%';
+  //canvas.elt.style.maxWidth = '100%';
   canvas.elt.style.height = 'auto';
 
   // Ensure mouse globals have sensible defaults so the displacement math is stable
@@ -243,10 +243,12 @@ function desenharTimelineDesktop() {
     let raioBox = boxH * 0.33;
     let inicioY = height * 0.5;
     let pos = deslocar(centroX, inicioY);
-    // Linha central
-    stroke(CORES.roxo);
-    strokeWeight(CONFIG.espessuraLinhaPrincipal);
-    line(pos.x, 0, pos.x, height);
+  // Linha central ajustada: desenhar segmentos que comecem/terminem fora da tela
+  stroke(CORES.roxo);
+  strokeWeight(CONFIG.espessuraLinhaPrincipal);
+  let offMargin = Math.max(200, CONFIG.maxDistDeslocamento * 2);
+  line(pos.x, -offMargin, pos.x, pos.y - boxH * 0.5);
+  line(pos.x, pos.y + boxH * 0.5, pos.x, height + offMargin);
     // Box
     fill(CORES.verde);
     stroke(CORES.roxo);
@@ -290,11 +292,11 @@ function desenharTimelineDesktop() {
     return deslocar(baseX, baseY);
   });
 
-  // Linha inicial (use metade do espaçamento como margem superior para simetria)
+  // Linha inicial (começa fora da tela para esconder endpoints)
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  let topLineY = posicoes[0].y - espacoY * 0.5;
-  line(posicoes[0].x, topLineY, posicoes[0].x, posicoes[0].y - boxH * 0.5);
+  let offMargin = Math.max(200, CONFIG.maxDistDeslocamento * 2);
+  line(posicoes[0].x, -offMargin, posicoes[0].x, posicoes[0].y - boxH * 0.5);
 
   for (let i = 0; i < eventos.length; i++) {
     let pos = posicoes[i];
@@ -321,12 +323,11 @@ function desenharTimelineDesktop() {
     desenharTextoDesktop(evento, pos.x, pos.y, boxW, boxH);
   }
 
-  // Linha final (margem inferior simétrica)
+  // Linha final (termina fora da tela para esconder endpoints)
   let ultimaPos = posicoes[posicoes.length - 1];
-  let bottomLineY = ultimaPos.y + espacoY * 0.5;
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  line(ultimaPos.x, ultimaPos.y + boxH * 0.5, ultimaPos.x, bottomLineY);
+  line(ultimaPos.x, ultimaPos.y + boxH * 0.5, ultimaPos.x, height + Math.max(200, CONFIG.maxDistDeslocamento * 2));
 }
 
 // VERSÃO MOBILE (layout vertical simples)
@@ -358,11 +359,11 @@ function desenharTimelineMobile() {
     return deslocar(baseX, baseY);
   });
 
-  // Linha inicial (simétrica: metade do espaco antes da primeira caixa)
+  // Linha inicial: comece fora da tela para esconder endpoints
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  let topLineY = posicoes[0].y - espacoY * 0.5;
-  line(centroX, topLineY, centroX, posicoes[0].y - boxH * 0.5);
+  let offMarginMobile = Math.max(200, CONFIG.maxDistDeslocamento * 2);
+  line(centroX, -offMarginMobile, centroX, posicoes[0].y - boxH * 0.5);
 
   for (let i = 0; i < eventos.length; i++) {
     let pos = posicoes[i];
@@ -386,11 +387,11 @@ function desenharTimelineMobile() {
     desenharTextoMobile(evento, pos.x, pos.y, boxW, boxH);
   }
 
-  // Linha final
+  // Linha final (termina fora da tela para esconder endpoints)
   let ultimaPos = posicoes[posicoes.length - 1];
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  line(ultimaPos.x, ultimaPos.y + boxH * 0.5, ultimaPos.x, height);
+  line(ultimaPos.x, ultimaPos.y + boxH * 0.5, ultimaPos.x, height + Math.max(200, CONFIG.maxDistDeslocamento * 2));
 }
 
 function desenharTextoDesktop(evento, x, y, boxW, boxH) {

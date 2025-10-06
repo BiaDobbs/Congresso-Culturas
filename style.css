@@ -18,6 +18,8 @@ body {
 
 canvas {
   display: block;
+  margin: 0 !important;
+  padding: 0;
 }
 
 #p5-container {
