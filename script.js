@@ -1,11 +1,12 @@
 let linhasDeFundo = [];
 let eventos = [
-  { titulo: "Avaliação das propostas", data: " até 24.08", offsetX: 0 },
-  { titulo: "Publicação dos resultados", data: "28.08", offsetX: -190 },
-  { titulo: "Programação provisória", data: "15.09", offsetX: 130 },
-  { titulo: "Período de inscrições", data: "15.09 - 31.10", offsetX: -150 },
-  { titulo: "Envio dos trabalhos", data: "até 31.10", offsetX: 60 },
-  { titulo: "Programação final", data: "05.11", offsetX: 0 },
+  { titulo: "Avaliação das propostas", data: " até 24.08" },
+  { titulo: "Publicação dos resultados", data: "28.08" },
+  { titulo: "Programação provisória", data: "15.09" },
+  { titulo: "Inscrições para participar", data: "30.09 - 01.11" },
+  { titulo: "Envio dos trabalhos", data: "até 01.11" },
+  { titulo: "Programação final", data: "05.11" },
+  { titulo: "Inscrições para assistir", data: "até 25.11" },
 ];
 
 const CORES = {
@@ -16,8 +17,8 @@ const CORES = {
 
 // Configurações separadas para desktop e mobile
 const CONFIG_DESKTOP = {
-  linhasHorizontais: 15,
-  linhasVerticais: 10,
+  linhasHorizontais: 20,
+  linhasVerticais: 20,
   maxDistDeslocamento: 200,
   forcaDeslocamentoFundo: 6,
   forcaDeslocamentoPrincipal: 15,
@@ -35,6 +36,14 @@ const CONFIG_MOBILE = {
   espessuraLinhaPrincipal: 4
 };
 
+// Deterministic pseudo-random generator (stable per size) used for small jitter
+function deterministicRandom(n) {
+  // combine index and canvas width to change jitter on resize while keeping it stable otherwise
+  let seed = n * 12.9898 + (width || 1) * 0.001;
+  let t = Math.sin(seed) * 43758.5453123;
+  return t - Math.floor(t);
+}
+
 let isMobile = false;
 let CONFIG = CONFIG_DESKTOP;
 let touchX = 0, touchY = 0;
@@ -51,12 +60,19 @@ function setup() {
 
   detectarDispositivo();
   
-  let alturaCanvas = isMobile ? windowHeight * 0.9 : windowHeight * 0.8;
-  alturaCanvas = Math.max(alturaCanvas, isMobile ? 600 : 400);
+  let alturaCanvas = isMobile ? windowHeight * 0.9: windowHeight * 0.8;
+  alturaCanvas = Math.max(alturaCanvas, isMobile ? 800 : 500);
   
   let canvas = createCanvas(windowWidth, alturaCanvas);
   canvas.elt.id = "p5-canvas";
   canvas.parent("canvas-wrapper");
+  // make canvas element responsive in CSS pixels while keeping drawing buffer full-size
+  canvas.elt.style.maxWidth = '100%';
+  canvas.elt.style.height = 'auto';
+
+  // Ensure mouse globals have sensible defaults so the displacement math is stable
+  window.mouseX = window.mouseX || width * 0.5;
+  window.mouseY = window.mouseY || height * 0.5;
 
   textAlign(CENTER, CENTER);
   rectMode(CENTER);
@@ -215,22 +231,70 @@ function desenharFundo() {
 // VERSÃO DESKTOP (layout original com offsets)
 function desenharTimelineDesktop() {
   let centroX = width * 0.5;
-  let inicioY = height * 0.14;
-  let espacoY = height * 0.15;
-  let boxW = width * 0.27;
-  let boxH = height * 0.09;
-  let raioBox = boxH * 0.33;
 
+  // We'll compute symmetric top/bottom margins so the first and last items
+  // sit with similar spacing to canvas edges. Use a small iterative
+  // approach to stabilize boxH and espacoY.
+  let n = eventos.length;
+  if (n <= 1) {
+    // single item: center vertically
+    let boxW = Math.min(width * 0.27, 520);
+    let boxH = Math.min(height * 0.12, 140);
+    let raioBox = boxH * 0.33;
+    let inicioY = height * 0.5;
+    let pos = deslocar(centroX, inicioY);
+    // Linha central
+    stroke(CORES.roxo);
+    strokeWeight(CONFIG.espessuraLinhaPrincipal);
+    line(pos.x, 0, pos.x, height);
+    // Box
+    fill(CORES.verde);
+    stroke(CORES.roxo);
+    strokeWeight(CONFIG.espessuraLinhaPrincipal);
+    rect(pos.x, pos.y, boxW, boxH, raioBox);
+    desenharTextoDesktop(eventos[0], pos.x, pos.y, boxW, boxH);
+    return;
+  }
+
+  // initial guesses
+  let boxW = Math.min(width * 0.27, 520);
+  let boxH = Math.min(height * 0.09, 120);
+
+  // iterate a couple of times to stabilize spacing
+  let margin = 0, espacoY = 0;
+  for (let iter = 0; iter < 2; iter++) {
+    margin = Math.max(height * 0.08, boxH * 0.8);
+    // ensure there's at least some available space
+    let available = Math.max(height - 2 * margin, height * 0.25);
+    espacoY = available / (n - 1);
+    espacoY = Math.min(espacoY, height * 0.18);
+    boxH = Math.min(height * 0.09, espacoY * 0.75, 140);
+  }
+  let raioBox = boxH * 0.33;
+  let inicioY = margin;
+
+  // Calculate automatic offsets for desktop: alternate left/right but keep them closer to center
+  // Use smaller base offset and add a small deterministic jitter so layout feels organic
+  let baseOffset = Math.min(width * 0.11, 140); // reduced from previous
   let posicoes = eventos.map((evento, i) => {
-    let baseX = centroX + evento.offsetX;
+    let side = (i % 2 === 0) ? 1 : -1;
+    let factor = 1 + Math.floor(i / 2) * 0.06; // much smaller increase
+    // deterministic jitter in range [-0.18, 0.18] of baseOffset
+    let jitter = (deterministicRandom(i) - 0.5) * 0.36;
+    let offsetX = side * baseOffset * (factor + jitter);
+    let baseX = centroX + offsetX;
+    // keep boxes near center but allow reasonable margin
+    let margin = Math.max(boxW * 0.5, 36);
+    baseX = constrain(baseX, margin, width - margin);
     let baseY = inicioY + i * espacoY;
     return deslocar(baseX, baseY);
   });
 
-  // Linha inicial
+  // Linha inicial (use metade do espaçamento como margem superior para simetria)
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  line(posicoes[0].x, -boxH * 2.5, posicoes[0].x, posicoes[0].y - boxH * 0.5);
+  let topLineY = posicoes[0].y - espacoY * 0.5;
+  line(posicoes[0].x, topLineY, posicoes[0].x, posicoes[0].y - boxH * 0.5);
 
   for (let i = 0; i < eventos.length; i++) {
     let pos = posicoes[i];
@@ -257,22 +321,36 @@ function desenharTimelineDesktop() {
     desenharTextoDesktop(evento, pos.x, pos.y, boxW, boxH);
   }
 
-  // Linha final
+  // Linha final (margem inferior simétrica)
   let ultimaPos = posicoes[posicoes.length - 1];
+  let bottomLineY = ultimaPos.y + espacoY * 0.5;
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  line(ultimaPos.x, ultimaPos.y + boxH * 0.5, ultimaPos.x, height + boxH);
+  line(ultimaPos.x, ultimaPos.y + boxH * 0.5, ultimaPos.x, bottomLineY);
 }
 
 // VERSÃO MOBILE (layout vertical simples)
 function desenharTimelineMobile() {
   let centroX = width * 0.5;
-  let inicioY = height * 0.1;
-  let espacoY = height * 0.13; // Espaçamento maior para evitar sobreposição
-  let boxW = Math.min(width * 0.85, 320); // Largura fixa máxima
-  let boxH = 60; // Altura fixa para consistência
+  let n = eventos.length;
+  // choose box width/height constraints
+  let boxW = Math.min(width * 0.85, 440);
+  // initial guess for boxH
+  let boxH = Math.min(80, Math.max(48, height * 0.07));
+  let espacoY = 0;
+  let margin = 0;
+  // iterate to compute a symmetric top/bottom margin and spacing
+  for (let iter = 0; iter < 2; iter++) {
+    margin = Math.max(height * 0.06, boxH * 0.8);
+    let available = Math.max(height - 2 * margin, height * 0.25);
+    espacoY = available / Math.max(n - 1, 1);
+    espacoY = Math.min(espacoY, height * 0.18);
+    boxH = Math.min(80, Math.max(48, espacoY * 0.6));
+  }
   let raioBox = boxH * 0.25;
 
+  // start positions so first item is at margin + 0 * espacoY
+  let inicioY = margin;
   // Posições simples - só vertical, sem offsets
   let posicoes = eventos.map((evento, i) => {
     let baseX = centroX; // Sempre centralizado
@@ -280,10 +358,11 @@ function desenharTimelineMobile() {
     return deslocar(baseX, baseY);
   });
 
-  // Linha inicial
+  // Linha inicial (simétrica: metade do espaco antes da primeira caixa)
   stroke(CORES.roxo);
   strokeWeight(CONFIG.espessuraLinhaPrincipal);
-  line(centroX, 0, centroX, posicoes[0].y - boxH * 0.5);
+  let topLineY = posicoes[0].y - espacoY * 0.5;
+  line(centroX, topLineY, centroX, posicoes[0].y - boxH * 0.5);
 
   for (let i = 0; i < eventos.length; i++) {
     let pos = posicoes[i];
@@ -321,16 +400,37 @@ function desenharTextoDesktop(evento, x, y, boxW, boxH) {
   // Data à esquerda, maior
   fill(CORES.roxo);
   textStyle(BOLD);
-  textSize(boxH * 0.45);
-  //textAlign(RIGHT, CENTER);
-  text(evento.data, x + boxW * 0.3, y );
+  // set text size but clamp to readable range and ensure it fits near the right edge
+  let dateSize = constrain(boxH * 0.45, 12, 36);
+  textSize(dateSize);
+  // desired margin from the right edge of the box
+  let dateMargin = Math.max(boxW * 0.06, 8);
+  // maximum width available for the date (right half of the box minus margin)
+  let maxDateWidth = boxW * 0.5 - dateMargin;
+  while (textWidth(evento.data) > maxDateWidth && dateSize > 8) {
+    dateSize -= 1;
+    textSize(dateSize);
+  }
+  // draw date right-aligned at a fixed distance from the box right edge
+  textAlign(RIGHT, CENTER);
+  text(evento.data, x + boxW * 0.5 - dateMargin, y );
+  // restore center alignment for subsequent title drawing
+  textAlign(CENTER, CENTER);
   
   // Título à direita, menor
   fill(255);
   textStyle(NORMAL);
-  textSize(boxH * 0.35);
-  //textAlign(LEFT, CENTER);
-  text(evento.titulo, x - boxW * 0.2, y);
+  // responsive title size and wrapping
+  textSize(constrain(boxH * 0.32, 10, 28));
+  let titleX = x - boxW * 0.2;
+  let maxWidth = boxW * 0.5;
+  let lines = wrapText(evento.titulo, maxWidth);
+  // compute a safe lineHeight: at least a fraction of boxH, or enough for the font metrics
+  let lineHeight = Math.max(boxH * 0.20, textAscent() + textDescent() + 6);
+  for (let i = 0; i < lines.length; i++) {
+    let lineY = y - (lines.length - 1) * (lineHeight * 0.5) + i * lineHeight;
+    text(lines[i], titleX, lineY);
+  }
 }
 
 function desenharTextoMobile(evento, x, y, boxW, boxH) {
@@ -340,30 +440,65 @@ function desenharTextoMobile(evento, x, y, boxW, boxH) {
   // Data em cima, grande e destacada
   fill(CORES.roxo);
   textStyle(BOLD);
-  textSize(20); // Tamanho fixo para consistência
+  // size for mobile date, but shrink if necessary to fit box
+  let dateSizeMobile = constrain(boxH * 0.28, 14, 26);
+  textSize(dateSizeMobile);
+  let maxDateWidthMobile = boxW * 0.9;
+  while (textWidth(evento.data) > maxDateWidthMobile && dateSizeMobile > 10) {
+    dateSizeMobile -= 1;
+    textSize(dateSizeMobile);
+  }
   textAlign(CENTER, CENTER);
   text(evento.data, x, y + boxH * 0.2);
   
   // Título embaixo, menor mas legível
   fill(255);
   textStyle(NORMAL);
-  textSize(18); // Tamanho fixo menor
+  textSize(constrain(boxH * 0.24, 12, 22));
   textAlign(CENTER, CENTER);
-  
-  // Quebrar título se muito longo
-  if (textWidth(evento.titulo) > boxW * 0.8) {
-    let palavras = evento.titulo.split(' ');
-    let linha1 = '', linha2 = '';
-    let metade = Math.ceil(palavras.length / 2);
-    
-    linha1 = palavras.slice(0, metade).join(' ');
-    linha2 = palavras.slice(metade).join(' ');
-    
-    text(linha1, x, y - boxH * 0.1);
-    text(linha2, x, y - boxH * 0.25);
-  } else {
-    text(evento.titulo, x, y - boxH * 0.15);
+
+  // Use wrapText helper for mobile as well and center stacked lines
+  let maxWidth = boxW * 0.86;
+  let lines = wrapText(evento.titulo, maxWidth);
+  // compute line height based on boxH and font metrics to avoid overlap
+  let lineHeight = Math.max(boxH * 0.20, textAscent() + textDescent() + 6);
+  let startY = y - (lines.length - 1) * (lineHeight * 0.5);
+  for (let i = 0; i < lines.length; i++) {
+    text(lines[i], x, startY + i * lineHeight);
   }
+}
+
+// Helper: wrap a string into multiple lines so that textWidth(line) <= maxWidth
+function wrapText(str, maxWidth) {
+  // quick path
+  if (textWidth(str) <= maxWidth) return [str];
+  let words = str.split(' ');
+  let lines = [];
+  let current = words[0] || '';
+  for (let i = 1; i < words.length; i++) {
+    let w = words[i];
+    let test = current + ' ' + w;
+    if (textWidth(test) <= maxWidth) {
+      current = test;
+    } else {
+      lines.push(current);
+      current = w;
+    }
+  }
+  if (current) lines.push(current);
+  // if still too many lines, try to merge to max 2 lines by truncation
+  if (lines.length > 3) {
+    // keep first two and join the rest into third with ellipsis
+    let first = lines[0];
+    let second = lines[1];
+    let rest = lines.slice(2).join(' ');
+    // shorten rest until fits
+    while (textWidth(rest + '...') > maxWidth && rest.length > 0) {
+      rest = rest.slice(0, -1);
+    }
+    lines = [first, second, rest + (rest.length ? '...' : '')];
+  }
+  return lines;
 }
 
 function deslocarFundo(x, y) {
