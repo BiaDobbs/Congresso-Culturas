@@ -78,9 +78,10 @@ function setup() {
   rectMode(CENTER);
   
   if (isMobile) {
-    canvas.elt.addEventListener('touchstart', handleTouch, { passive: false });
-    canvas.elt.addEventListener('touchmove', handleTouch, { passive: false });
-    canvas.elt.addEventListener('touchend', handleTouchEnd, { passive: false });
+    // use passive listeners so the page can still scroll; we'll detect taps separately
+    canvas.elt.addEventListener('touchstart', handleTouchStart, { passive: true });
+    canvas.elt.addEventListener('touchmove', handleTouchMove, { passive: true });
+    canvas.elt.addEventListener('touchend', handleTouchEnd, { passive: true });
   }
   
   gerarLinhasDeFundo();
@@ -92,19 +93,99 @@ function detectarDispositivo() {
   CONFIG = isMobile ? CONFIG_MOBILE : CONFIG_DESKTOP;
 }
 
-function handleTouch(e) {
-  e.preventDefault();
-  if (e.touches.length > 0) {
-    let rect = e.target.getBoundingClientRect();
-    touchX = e.touches[0].clientX - rect.left;
-    touchY = e.touches[0].clientY - rect.top;
-    mouseX = touchX;
-    mouseY = touchY;
+// touch handling split into start/move/end so we don't block native scrolling
+let _touchStartX = 0, _touchStartY = 0, _touchStartTime = 0;
+let _touchMoved = false;
+
+function handleTouchStart(e) {
+  if (!e.touches || e.touches.length === 0) return;
+  let rect = e.target.getBoundingClientRect();
+  _touchStartX = e.touches[0].clientX;
+  _touchStartY = e.touches[0].clientY;
+  _touchStartTime = millis();
+  _touchMoved = false;
+  // set mouse position for displacement visuals but do not prevent scroll
+  touchX = _touchStartX - rect.left;
+  touchY = _touchStartY - rect.top;
+  mouseX = touchX;
+  mouseY = touchY;
+}
+
+function handleTouchMove(e) {
+  if (!e.touches || e.touches.length === 0) return;
+  let rect = e.target.getBoundingClientRect();
+  let tx = e.touches[0].clientX;
+  let ty = e.touches[0].clientY;
+  // detect movement beyond a small threshold to know it's a scroll/drag
+  if (Math.abs(tx - _touchStartX) > 10 || Math.abs(ty - _touchStartY) > 10) {
+    _touchMoved = true;
   }
+  touchX = tx - rect.left;
+  touchY = ty - rect.top;
+  mouseX = touchX;
+  mouseY = touchY;
 }
 
 function handleTouchEnd(e) {
-  e.preventDefault();
+  // determine if this was a tap (short duration, small movement)
+  let dt = millis() - _touchStartTime;
+  if (!_touchMoved && dt < 300) {
+    // convert last known touch coords to canvas-local and handle tap
+    handleTap(touchX, touchY);
+  }
+  // reset move flag
+  _touchMoved = false;
+}
+
+// Simple tap handler: find which box was tapped and flash it briefly
+let _flashIndex = -1;
+let _flashUntil = 0;
+
+function handleTap(cx, cy) {
+  // find which event box contains point (cx,cy)
+  // we must recompute positions similarly to mobile drawing
+  let centroX = width * 0.5;
+  let boxW = Math.min(width * 0.86, 440);
+  let localBoxH = constrain(boxW * 0.24, 40, 140);
+  // try to mirror the layout computation: iterate to estimate gap/margin
+  let n = eventos.length;
+  let boxH = localBoxH;
+  let gap = Math.max(boxH * 0.5, 12);
+  let margin = Math.max(height * 0.06, boxH * 0.6);
+  for (let iter = 0; iter < 6; iter++) {
+    margin = Math.max(height * 0.06, boxH * 0.6);
+    let available = height - 2 * margin;
+    let contentH = n * boxH;
+    if (n > 1) {
+      gap = (available - contentH) / (n - 1);
+      gap = constrain(gap, boxH * 0.25, Math.max(boxH * 1.2, height * 0.18));
+    } else {
+      gap = 0;
+    }
+    if (available < contentH + (n - 1) * (boxH * 0.25)) {
+      boxH = boxH * 0.92;
+      boxH = constrain(boxH, 40, 140);
+      continue;
+    }
+    break;
+  }
+  let inicioY = margin + boxH * 0.5;
+  for (let i = 0; i < eventos.length; i++) {
+    let bx = centroX;
+    let by = inicioY + i * (boxH + gap);
+    // check hit in local canvas coords
+    if (cx >= bx - boxW * 0.5 && cx <= bx + boxW * 0.5 && cy >= by - boxH * 0.5 && cy <= by + boxH * 0.5) {
+      _flashIndex = i;
+      _flashUntil = millis() + 400; // flash for 400ms
+      // open the same link a desktop click would (do not block the UI)
+      try {
+        window.open('https://app.ciente.studio/xiconginternacionalsobreculturas', '_blank');
+      } catch (err) {
+        // ignore popup blockers — visual feedback still helps
+      }
+      return;
+    }
+  }
 }
 
 function draw() {
@@ -314,7 +395,12 @@ function desenharTimelineDesktop() {
     }
 
     // Caixa do evento
-    fill(CORES.verde);
+    if (_flashIndex === i && millis() < _flashUntil) {
+      // brighter flash color for tap feedback
+      fill(lerpColor(color(CORES.verde), color(255, 255, 255), 0.18));
+    } else {
+      fill(CORES.verde);
+    }
     stroke(CORES.roxo);
     strokeWeight(CONFIG.espessuraLinhaPrincipal);
     rect(pos.x, pos.y, boxW, boxH, raioBox);
@@ -335,27 +421,42 @@ function desenharTimelineMobile() {
   let centroX = width * 0.5;
   let n = eventos.length;
   // choose box width/height constraints
-  let boxW = Math.min(width * 0.85, 440);
-  // initial guess for boxH
-  let boxH = Math.min(80, Math.max(48, height * 0.07));
-  let espacoY = 0;
+  let boxW = Math.min(width * 0.86, 440);
+  // initial box height proportional to box width
+  let boxH = constrain(boxW * 0.24, 48, 110);
+  let gap = Math.max(boxH * 0.5, 12);
   let margin = 0;
-  // iterate to compute a symmetric top/bottom margin and spacing
-  for (let iter = 0; iter < 2; iter++) {
-    margin = Math.max(height * 0.06, boxH * 0.8);
-    let available = Math.max(height - 2 * margin, height * 0.25);
-    espacoY = available / Math.max(n - 1, 1);
-    espacoY = Math.min(espacoY, height * 0.18);
-    boxH = Math.min(80, Math.max(48, espacoY * 0.6));
-  }
-  let raioBox = boxH * 0.25;
 
-  // start positions so first item is at margin + 0 * espacoY
-  let inicioY = margin;
+  // Iteratively shrink boxH if there's not enough vertical space so items don't overlap.
+  for (let iter = 0; iter < 6; iter++) {
+    margin = Math.max(height * 0.06, boxH * 0.6);
+    let available = height - 2 * margin;
+    let contentH = n * boxH;
+    // If only one item, no gap needed
+    if (n > 1) {
+      gap = (available - contentH) / (n - 1);
+      // enforce sensible bounds on gap
+      gap = constrain(gap, boxH * 0.25, Math.max(boxH * 1.2, height * 0.18));
+    } else {
+      gap = 0;
+    }
+
+    // If available space is too small even with minimal gap, shrink boxH and retry
+    if (available < contentH + (n - 1) * (boxH * 0.25)) {
+      boxH = boxH * 0.92; // shrink slightly and iterate
+      boxH = constrain(boxH, 40, 140);
+      continue;
+    }
+    break;
+  }
+
+  let raioBox = boxH * 0.25;
+  // start Y so first item centers at margin + boxH/2
+  let inicioY = margin + boxH * 0.5;
   // Posições simples - só vertical, sem offsets
   let posicoes = eventos.map((evento, i) => {
     let baseX = centroX; // Sempre centralizado
-    let baseY = inicioY + i * espacoY;
+    let baseY = inicioY + i * (boxH + gap);
     return deslocar(baseX, baseY);
   });
 
@@ -378,7 +479,11 @@ function desenharTimelineMobile() {
     }
 
     // Caixa do evento
-    fill(CORES.verde);
+    if (_flashIndex === i && millis() < _flashUntil) {
+      fill(lerpColor(color(CORES.verde), color(255, 255, 255), 0.18));
+    } else {
+      fill(CORES.verde);
+    }
     stroke(CORES.roxo);
     strokeWeight(CONFIG.espessuraLinhaPrincipal);
     rect(pos.x, pos.y, boxW, boxH, raioBox);
@@ -441,29 +546,29 @@ function desenharTextoMobile(evento, x, y, boxW, boxH) {
   // Data em cima, grande e destacada
   fill(CORES.roxo);
   textStyle(BOLD);
-  // size for mobile date, but shrink if necessary to fit box
-  let dateSizeMobile = constrain(boxH * 0.28, 14, 26);
+  // date size derived from boxH but also constrained by boxW
+  let dateSizeMobile = constrain(boxH * 0.30, 12, Math.max(18, boxW * 0.04));
   textSize(dateSizeMobile);
   let maxDateWidthMobile = boxW * 0.9;
-  while (textWidth(evento.data) > maxDateWidthMobile && dateSizeMobile > 10) {
+  while (textWidth(evento.data) > maxDateWidthMobile && dateSizeMobile > 8) {
     dateSizeMobile -= 1;
     textSize(dateSizeMobile);
   }
   textAlign(CENTER, CENTER);
-  text(evento.data, x, y + boxH * 0.2);
-  
-  // Título embaixo, menor mas legível
+  text(evento.data, x, y - boxH * 0.18);
+
+  // Título embaixo, responsivo
   fill(255);
   textStyle(NORMAL);
-  textSize(constrain(boxH * 0.24, 12, 22));
+  let titleSize = constrain(boxH * 0.26, 12, 22);
+  textSize(titleSize);
   textAlign(CENTER, CENTER);
-
-  // Use wrapText helper for mobile as well and center stacked lines
   let maxWidth = boxW * 0.86;
   let lines = wrapText(evento.titulo, maxWidth);
-  // compute line height based on boxH and font metrics to avoid overlap
   let lineHeight = Math.max(boxH * 0.20, textAscent() + textDescent() + 6);
-  let startY = y - (lines.length - 1) * (lineHeight * 0.5);
+  // center the block vertically below the date
+  let totalH = lines.length * lineHeight;
+  let startY = y + boxH * 0.05 - totalH * 0.5 + lineHeight * 0.5;
   for (let i = 0; i < lines.length; i++) {
     text(lines[i], x, startY + i * lineHeight);
   }
